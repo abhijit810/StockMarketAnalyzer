@@ -1,0 +1,25 @@
+install pip libraries
+python -m pip install <package_name>
+python -m pip install --upgrade pip
+
+python -m pip install scrapy
+python -m pip3 install --upgrade setuptools
+python -m pip install Twisted-20.3.0-cp38-cp38-win32.whl
+
+python -m scrapy startproject analyzer
+
+python -m scrapy crawl stock
+
+https://doc.scrapy.org/en/latest/intro/tutorial.html
+
+https://www.tutorialspoint.com/scrapy/scrapy_selectors.htm#:~:text=When%20you%20are%20scraping%20the,and%20HTML%20in%20Python%20language.
+
+python -m scrapy crawl stock
+
+python -m scrapy shell https://www.screener.in/company/TRENT/consolidated/
+
+response.css('title::text').get()
+
+https://youtu.be/ALizgnSFTwQ    --really useful
+
+response.css('div#content-area div#company-info h1::text').get() -- company name
