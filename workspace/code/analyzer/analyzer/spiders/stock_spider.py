@@ -1,8 +1,19 @@
 import scrapy
 import os
+<<<<<<< HEAD
+import shutil
 import datetime
 from scrapy.selector import Selector 
 from scrapy.http import HtmlResponse
+import re
+from openpyxl import Workbook
+from openpyxl import load_workbook
+import pandas as pd
+=======
+import datetime
+from scrapy.selector import Selector 
+from scrapy.http import HtmlResponse
+>>>>>>> 468f27d... first customized scrape, learnt how to pick particular elements from the site, will start actual file construction next
 
 class StockSpider(scrapy.Spider):
     name = "stock"
@@ -17,7 +28,11 @@ class StockSpider(scrapy.Spider):
         #filename = 'stock_'+str(today.year)+'_'+str(today.month)+'_'+str(today.day)+'_'+page+'.txt'
         filename = 'stock_'+str(today.strftime('%Y_%h_%d'))+'_'+page+'.txt'
         os.chdir('output')
+<<<<<<< HEAD
+        with open('temporary_files\\'+filename, 'wb') as f:
+=======
         with open(filename, 'wb') as f:
+>>>>>>> 468f27d... first customized scrape, learnt how to pick particular elements from the site, will start actual file construction next
             f.write(response.body)
         self.log('Saved file %s' % filename)
 
@@ -25,8 +40,39 @@ class StockSpider(scrapy.Spider):
         page = response.url.split("/")[-3]
         today = datetime.datetime.now()
         #filename = 'stock_'+str(today.year)+'_'+str(today.month)+'_'+str(today.day)+'_'+page+'.txt'
+<<<<<<< HEAD
+        os.chdir('file_processing')
+        template_file = 'template\\excel_format.xlsx'
+        dest_filename = 'output\\stock_'+today.strftime('%Y_%h_%d')+'_'+page+'.xlsx'
+        workbook = load_workbook(filename=template_file)
+        yearly_Sheet = workbook["Yearly"]
+        #df_balance_sheet = self.importAsDataframe(section_id = 'balance-sheet')
+        yearly_Sheet['A8'] = response.css('div#content-area div#company-info h1::text').get()
+        yearly_Sheet['B8'] = response.css('#content-area > section:nth-child(5) > ul > li:nth-child(2) > b::text').get()
+        self.importAsDataframe(section_id = 'balance-sheet',response=response)
+        #sheet.write(9,0,response.css('div#content-area div#company-info h1::text').get())
+        #wb.save(dest_filename)
+        workbook.save(dest_filename)
+
+    def remove_html_tags(self,text):
+        """Remove html tags from a string"""
+        clean = re.compile('<.*?>')
+        return re.sub(clean, '', text)
+
+    def importAsDataframe(self, section_id,response):
+        #response.css('#balance-sheet > div.responsive-holder > table > tbody').get()
+        #table = response.css('#'+section_id+' > div.responsive-holder > table').get()
+        table = response.xpath('//*[@id="'+section_id+'"]/div[2]/table')
+        rows = table.xpath('//tr')
+        with open('temporary_files\\'+section_id+'.csv', 'w') as f:
+            for row in rows:
+                f.write(str(row.xpath('td[1]//text()').extract_first())+','+str(row.xpath('td[2]//text()').extract_first())+','+str(row.xpath('td[3]//text()').extract_first()))
+                #f.write(str(row))
+                #row.xpath('td[1]//text()')extract_first()
+=======
         filename = 'stock_'+str(today.strftime('%Y_%h_%d'))+'_'+page+'.csv'
         os.chdir('output')
         with open(filename, 'w') as f:
             f.write(response.css('div#content-area div#company-info h1::text').get())
         #for post in response.css(div@con)
+>>>>>>> 468f27d... first customized scrape, learnt how to pick particular elements from the site, will start actual file construction next
