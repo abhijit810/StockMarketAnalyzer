@@ -6,6 +6,12 @@ python -m pip install scrapy
 python -m pip3 install --upgrade setuptools
 python -m pip install Twisted-20.3.0-cp38-cp38-win32.whl
 
+python -m pip install pandas
+
+python -m pip install shutil
+
+python -m pip install xlutils
+
 python -m scrapy startproject analyzer
 
 python -m scrapy crawl stock
@@ -23,3 +29,30 @@ response.css('title::text').get()
 https://youtu.be/ALizgnSFTwQ    --really useful
 
 response.css('div#content-area div#company-info h1::text').get() -- company name
+
+response.xpath('//*[@id="quarters"]/div[2]/table/thead/tr/th[9]').get()
+
+remove_html_tags(response.xpath('//*[@id="quarters"]/div[2]/table/thead/tr/th[9]').get())
+
+response.css('#content-area > section:nth-child(5) > ul > li:nth-child(2) > b::text').get()
+
+response.css('#balance-sheet > div.responsive-holder > table > thead::extract').get()
+
+#balance-sheet > div.responsive-holder > table > tbody
+
+#cash-flow > div.responsive-holder > table > tbody
+
+#cash-flow > div.responsive-holder > table > thead
+
+//*[@id="cash-flow"]/div[2]/table/thead
+
+response.xpath('//*[@id="cash-flow"]/div[2]/table/thead').get()
+
+#cash-flow > div.responsive-holder > table > thead > tr > th:nth-child(2)
+
+#cash-flow > div.responsive-holder > table > thead > tr > th:nth-child(3)
+
+#balance-sheet > div.responsive-holder > table > thead > tr > th:nth-child(14)
+
+https://www.simplified.guide/scrapy/scrape-table#:~:text=Steps%20to%20scrape%20HTML%20table,from%20using%20your%20web%20browser.&text=Inspect%20the%20element%20of%20the,by%20viewing%20the%20source%20code.&text=Launch%20Scrapy%20shell%20at%20the,page%20URL%20as%20an%20argument.
+
