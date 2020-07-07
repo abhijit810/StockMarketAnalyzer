@@ -54,9 +54,5 @@ response.xpath('//*[@id="cash-flow"]/div[2]/table/thead').get()
 
 #balance-sheet > div.responsive-holder > table > thead > tr > th:nth-child(14)
 
-<<<<<<< HEAD
 https://www.simplified.guide/scrapy/scrape-table#:~:text=Steps%20to%20scrape%20HTML%20table,from%20using%20your%20web%20browser.&text=Inspect%20the%20element%20of%20the,by%20viewing%20the%20source%20code.&text=Launch%20Scrapy%20shell%20at%20the,page%20URL%20as%20an%20argument.
 
-=======
-https://www.simplified.guide/scrapy/scrape-table#:~:text=Steps%20to%20scrape%20HTML%20table,from%20using%20your%20web%20browser.&text=Inspect%20the%20element%20of%20the,by%20viewing%20the%20source%20code.&text=Launch%20Scrapy%20shell%20at%20the,page%20URL%20as%20an%20argument.
->>>>>>> 1e6e1db... implementing a new idea, useful in long term. building something genereic
