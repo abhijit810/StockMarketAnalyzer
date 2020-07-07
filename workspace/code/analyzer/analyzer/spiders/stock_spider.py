@@ -22,7 +22,7 @@ class StockSpider(scrapy.Spider):
         #filename = 'stock_'+str(today.year)+'_'+str(today.month)+'_'+str(today.day)+'_'+page+'.txt'
         filename = 'stock_'+str(today.strftime('%Y_%h_%d'))+'_'+page+'.txt'
         os.chdir('output')
-        with open(filename, 'wb') as f:
+        with open('temporary_files\\'+filename, 'wb') as f:
             f.write(response.body)
         self.log('Saved file %s' % filename)
 
@@ -38,6 +38,7 @@ class StockSpider(scrapy.Spider):
         #df_balance_sheet = self.importAsDataframe(section_id = 'balance-sheet')
         yearly_Sheet['A8'] = response.css('div#content-area div#company-info h1::text').get()
         yearly_Sheet['B8'] = response.css('#content-area > section:nth-child(5) > ul > li:nth-child(2) > b::text').get()
+        self.importAsDataframe(section_id = 'balance-sheet',response=response)
         #sheet.write(9,0,response.css('div#content-area div#company-info h1::text').get())
         #wb.save(dest_filename)
         workbook.save(dest_filename)
@@ -49,8 +50,11 @@ class StockSpider(scrapy.Spider):
 
     def importAsDataframe(self, section_id,response):
         #response.css('#balance-sheet > div.responsive-holder > table > tbody').get()
-        table = response.css('#'+section_id+' > div.responsive-holder > table').get()
+        #table = response.css('#'+section_id+' > div.responsive-holder > table').get()
+        table = response.xpath('//*[@id="'+section_id+'"]/div[2]/table')
         rows = table.xpath('//tr')
-        for row in rows:
-            row.xpath('td//text()')[0].extract()
-            table = pd.DataFrame()
+        with open('temporary_files\\'+section_id+'.csv', 'w') as f:
+            for row in rows:
+                f.write(str(row.xpath('td[1]//text()').extract_first())+','+str(row.xpath('td[2]//text()').extract_first())+','+str(row.xpath('td[3]//text()').extract_first()))
+                #f.write(str(row))
+                #row.xpath('td[1]//text()')extract_first()
