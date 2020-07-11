@@ -52,12 +52,12 @@ class StockSpider(scrapy.Spider):
     def importAsDataframe(self, section_id,response):
         headers = response.xpath('//*[@id="'+section_id+'"]/div[2]/table/thead//text()').getall()
         tableBody = response.xpath('//*[@id="'+section_id+'"]/div[2]/table/tbody//text()').getall()
-        with open('temporary_files\\'+section_id+'.csv', 'wb') as f:
+        with open('temporary_files\\'+section_id+'.csv', 'wb+') as f:
             header_row = 'category,'
             for header in headers:
                 header_row = header_row +header.strip()+ ','
             header_row = header_row.replace(',,',',').replace(',,',',')
-            f.write((header_row[:-1]+'\n').encode('utf-8').strip())
+            f.write((header_row[:-1]+'\n').encode('utf-8'))
             col_count = 0
             header_length = len(header_row[:-1].split(',')) +1
             for rows in tableBody:
@@ -73,8 +73,13 @@ class StockSpider(scrapy.Spider):
                         rows = re.sub(',,', ',', rows)
                         col_count  = (col_count + 1)%(header_length+1)
                         if col_count == header_length:
-                            f.write(('\n').encode('utf-8').strip())
+                            f.seek(-1, os.SEEK_END)
+                            f.truncate()
+                            f.write(('\n').encode('utf-8'))
                             col_count = 1
-                        f.write(rows.encode('utf-8').strip())
-        df = pd.read_csv ('temporary_files\\'+section_id+'.csv')
+                        f.write(rows.encode('utf-8'))
+            f.seek(-1, os.SEEK_END)
+            f.truncate()
+            f.close()
+        df = pd.read_csv ('temporary_files\\'+section_id+'.csv',index_col=None)
         return df
