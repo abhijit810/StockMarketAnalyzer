@@ -1,6 +1,5 @@
 import scrapy
 import os
-<<<<<<< HEAD
 import shutil
 import datetime
 from scrapy.selector import Selector 
@@ -9,11 +8,6 @@ import re
 from openpyxl import Workbook
 from openpyxl import load_workbook
 import pandas as pd
-=======
-import datetime
-from scrapy.selector import Selector 
-from scrapy.http import HtmlResponse
->>>>>>> 468f27d... first customized scrape, learnt how to pick particular elements from the site, will start actual file construction next
 
 class StockSpider(scrapy.Spider):
     name = "stock"
@@ -28,11 +22,7 @@ class StockSpider(scrapy.Spider):
         #filename = 'stock_'+str(today.year)+'_'+str(today.month)+'_'+str(today.day)+'_'+page+'.txt'
         filename = 'stock_'+str(today.strftime('%Y_%h_%d'))+'_'+page+'.txt'
         os.chdir('output')
-<<<<<<< HEAD
         with open('temporary_files\\'+filename, 'wb') as f:
-=======
-        with open(filename, 'wb') as f:
->>>>>>> 468f27d... first customized scrape, learnt how to pick particular elements from the site, will start actual file construction next
             f.write(response.body)
         self.log('Saved file %s' % filename)
 
@@ -40,7 +30,6 @@ class StockSpider(scrapy.Spider):
         page = response.url.split("/")[-3]
         today = datetime.datetime.now()
         #filename = 'stock_'+str(today.year)+'_'+str(today.month)+'_'+str(today.day)+'_'+page+'.txt'
-<<<<<<< HEAD
         os.chdir('file_processing')
         template_file = 'template\\excel_format.xlsx'
         dest_filename = 'output\\stock_'+today.strftime('%Y_%h_%d')+'_'+page+'.xlsx'
@@ -49,7 +38,8 @@ class StockSpider(scrapy.Spider):
         #df_balance_sheet = self.importAsDataframe(section_id = 'balance-sheet')
         yearly_Sheet['A8'] = response.css('div#content-area div#company-info h1::text').get()
         yearly_Sheet['B8'] = response.css('#content-area > section:nth-child(5) > ul > li:nth-child(2) > b::text').get()
-        self.importAsDataframe(section_id = 'balance-sheet',response=response)
+        df_balance_sheet = self.importAsDataframe(section_id = 'balance-sheet',response=response)
+        print(df_balance_sheet.head())
         #sheet.write(9,0,response.css('div#content-area div#company-info h1::text').get())
         #wb.save(dest_filename)
         workbook.save(dest_filename)
@@ -60,19 +50,31 @@ class StockSpider(scrapy.Spider):
         return re.sub(clean, '', text)
 
     def importAsDataframe(self, section_id,response):
-        #response.css('#balance-sheet > div.responsive-holder > table > tbody').get()
-        #table = response.css('#'+section_id+' > div.responsive-holder > table').get()
-        table = response.xpath('//*[@id="'+section_id+'"]/div[2]/table')
-        rows = table.xpath('//tr')
-        with open('temporary_files\\'+section_id+'.csv', 'w') as f:
-            for row in rows:
-                f.write(str(row.xpath('td[1]//text()').extract_first())+','+str(row.xpath('td[2]//text()').extract_first())+','+str(row.xpath('td[3]//text()').extract_first()))
-                #f.write(str(row))
-                #row.xpath('td[1]//text()')extract_first()
-=======
-        filename = 'stock_'+str(today.strftime('%Y_%h_%d'))+'_'+page+'.csv'
-        os.chdir('output')
-        with open(filename, 'w') as f:
-            f.write(response.css('div#content-area div#company-info h1::text').get())
-        #for post in response.css(div@con)
->>>>>>> 468f27d... first customized scrape, learnt how to pick particular elements from the site, will start actual file construction next
+        headers = response.xpath('//*[@id="'+section_id+'"]/div[2]/table/thead//text()').getall()
+        tableBody = response.xpath('//*[@id="'+section_id+'"]/div[2]/table/tbody//text()').getall()
+        with open('temporary_files\\'+section_id+'.csv', 'wb') as f:
+            header_row = 'category,'
+            for header in headers:
+                header_row = header_row +header.strip()+ ','
+            header_row = header_row.replace(',,',',').replace(',,',',')
+            f.write((header_row[:-1]+'\n').encode('utf-8').strip())
+            col_count = 0
+            header_length = len(header_row[:-1].split(',')) +1
+            for rows in tableBody:
+                    if rows.strip() == "":
+                        continue
+                    elif rows.strip() == '+':
+                        continue
+                    else :
+                        rows = (' "'+rows+'" ,')
+                        rows = re.sub(' +', ' ', rows)
+                        rows = re.sub('\n+', '', rows)
+                        rows = re.sub(' ', '', rows)
+                        rows = re.sub(',,', ',', rows)
+                        col_count  = (col_count + 1)%(header_length+1)
+                        if col_count == header_length:
+                            f.write(('\n').encode('utf-8').strip())
+                            col_count = 1
+                        f.write(rows.encode('utf-8').strip())
+        df = pd.read_csv ('temporary_files\\'+section_id+'.csv')
+        return df
