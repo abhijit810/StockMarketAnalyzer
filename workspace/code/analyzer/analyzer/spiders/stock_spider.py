@@ -9,50 +9,50 @@ from openpyxl import Workbook
 from openpyxl import load_workbook
 import pandas as pd
 
+os.chdir('file_processing')
+
 class StockSpider(scrapy.Spider):
     name = "stock"
-    urls = ['https://www.screener.in/company/TRENT/consolidated/']
+    def __init__(self, **kwargs):
+        today = datetime.datetime.now()
+        self.companies = self.def_companies_df()
+        self.company_codes = list(self.companies.index.values)
+        self.template_file = 'template\\excel_format.xlsx'
+        self.temporary_file = 'temporary_files\\temp_format.xlsx'
+        self.dest_filename = 'output\\stock_'+today.strftime('%Y_%h_%d')+'_.xlsx'
+
     def start_requests(self):
-        for url in self.urls:
-            yield scrapy.Request(url=url, callback=self.parse_mine)
+        if(os.path.exists(self.temporary_file)):os.remove(self.temporary_file)
+        shutil.copyfile(self.template_file, self.temporary_file)
+        workbook = load_workbook(filename=self.temporary_file)
+        for count, company_code in enumerate(self.company_codes):
+            url = 'https://www.screener.in/company/'+company_code+'/consolidated/'
+            yield scrapy.Request(url=url, callback=self.parse, meta={'count':count+6, 'company_code':company_code, 'workbook':workbook})
+        workbook.close()
+
 
     def parse(self, response):
-        page = response.url.split("/")[-3]
-        today = datetime.datetime.now()
-        #filename = 'stock_'+str(today.year)+'_'+str(today.month)+'_'+str(today.day)+'_'+page+'.txt'
-        filename = 'stock_'+str(today.strftime('%Y_%h_%d'))+'_'+page+'.txt'
-        os.chdir('output')
-        with open('temporary_files\\'+filename, 'wb') as f:
-            f.write(response.body)
-        self.log('Saved file %s' % filename)
-
-    def parse_mine(self,response):
-        page = response.url.split("/")[-3]
-        today = datetime.datetime.now()
-        #filename = 'stock_'+str(today.year)+'_'+str(today.month)+'_'+str(today.day)+'_'+page+'.txt'
-        os.chdir('file_processing')
-        template_file = 'template\\excel_format.xlsx'
-        dest_filename = 'output\\stock_'+today.strftime('%Y_%h_%d')+'_'+page+'.xlsx'
-        workbook = load_workbook(filename=template_file)
+        count = str(response.meta['count'])
+        company_code = str(response.meta['company_code'])
+        workbook = response.meta['workbook']
+        company = self.companies.loc[company_code]
+        company_name = company['NAME OF COMPANY']
+        sector_name = company['Industry']
+        group = company['Group']
+        cmp= response.css('#content-area > section:nth-child(5) > ul > li:nth-child(2) > b::text').get()
         yearly_Sheet = workbook["Yearly"]
-        #df_balance_sheet = self.importAsDataframe(section_id = 'balance-sheet')
-        yearly_Sheet['A8'] = response.css('div#content-area div#company-info h1::text').get()
-        yearly_Sheet['B8'] = response.css('#content-area > section:nth-child(5) > ul > li:nth-child(2) > b::text').get()
-        df_balance_sheet = self.importAsDataframe(section_id = 'balance-sheet',response=response)
-        print(df_balance_sheet.head())
-        #sheet.write(9,0,response.css('div#content-area div#company-info h1::text').get())
-        #wb.save(dest_filename)
-        workbook.save(dest_filename)
+        yearly_Sheet['A'+count] = company_name
+        yearly_Sheet['B'+count] = sector_name
+        yearly_Sheet['C'+count] = group
+        yearly_Sheet['D'+count] = cmp
+        workbook.save(self.temporary_file)
+        if(os.path.exists(self.dest_filename)): os.remove(self.dest_filename)
+        if(os.path.exists(self.temporary_file)): shutil.copyfile(self.temporary_file, self.dest_filename)
 
-    def remove_html_tags(self,text):
-        """Remove html tags from a string"""
-        clean = re.compile('<.*?>')
-        return re.sub(clean, '', text)
-
-    def importAsDataframe(self, section_id,response):
+    def importAsDataframe(self, section_id,comapny_name,response):
         headers = response.xpath('//*[@id="'+section_id+'"]/div[2]/table/thead//text()').getall()
         tableBody = response.xpath('//*[@id="'+section_id+'"]/div[2]/table/tbody//text()').getall()
-        with open('temporary_files\\'+section_id+'.csv', 'wb+') as f:
+        with open('temporary_files\\'+comapny_name+'_'+section_id+'.csv', 'wb+') as f:
             header_row = 'category,'
             for header in headers:
                 header_row = header_row +header.strip()+ ','
@@ -83,3 +83,17 @@ class StockSpider(scrapy.Spider):
             f.close()
         df = pd.read_csv ('temporary_files\\'+section_id+'.csv',index_col=None)
         return df
+    
+    def def_companies_df(self):
+        '''reads the raw datasets and returns the desired dataframe with useful columns'''
+        NSE = pd.read_csv ('template\\NSE_list_of_companies.csv',index_col='SYMBOL')
+        NSE = NSE.rename(columns={"SYMBOL": "SECURITY"})
+
+        BSE = pd.read_csv ('template\\BSE_list_of_companies.csv',index_col='Security Id')
+        BSE = BSE.rename(columns={"Security Id": "SECURITY"})
+
+        companies_df = pd.concat([NSE, BSE],axis=1)
+        return companies_df[['NAME OF COMPANY','Industry','Group']].head(15)
+
+#df_balance_sheet = self.importAsDataframe(section_id = 'balance-sheet',comapny_name=comapny_name,response=response)
+#print(df_balance_sheet.head())
