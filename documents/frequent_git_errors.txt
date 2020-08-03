@@ -64,3 +64,11 @@ https://www.simplified.guide/scrapy/scrape-table#:~:text=Steps%20to%20scrape%20H
 
 
 /html/body/main/div/section[4]/div[1]/div[2]/table/tbody/tr[2]/td[3]
+
+#top-nav-search > div > input
+
+//*[@id="top-nav-search"]/div/input
+
+<input aria-label="Search Company" type="search" autocomplete="off" spellcheck="false" placeholder="Company search..." class="u-full-width" data-company-search="true" style="margin-bottom: 0px;">
+
+https://stackoverflow.com/questions/7047790/how-can-i-input-data-into-a-webpage-to-scrape-the-resulting-output-using-python
