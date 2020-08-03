@@ -2,12 +2,20 @@ import scrapy
 import os
 import shutil
 import datetime
+import time
 from scrapy.selector import Selector 
 from scrapy.http import HtmlResponse
 import re
 from openpyxl import Workbook
 from openpyxl import load_workbook
 import pandas as pd
+import requests
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
 
 os.chdir('file_processing')
 
@@ -25,13 +33,21 @@ class StockSpider(scrapy.Spider):
         if(os.path.exists(self.temporary_file)):os.remove(self.temporary_file)
         shutil.copyfile(self.template_file, self.temporary_file)
         workbook = load_workbook(filename=self.temporary_file)
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument("--incognito")
+        chrome_options.add_experimental_option("detach", True)
+        chrome_options.add_experimental_option("useAutomationExtension", False)
+        chrome_options.add_experimental_option("excludeSwitches",["enable-automation"])
+        browser = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
+        source_Url = 'https://www.screener.in/'
+        browser.get(source_Url)
         for count, company_code in enumerate(self.company_codes):
-            url = 'https://www.screener.in/company/'+company_code+'/consolidated/'
-            yield scrapy.Request(url=url, callback=self.parse, meta={'count':count+6, 'company_code':company_code, 'workbook':workbook})
+            url = self.getScreenerUrlSelenium(browser = browser , companyName = company_code)
+            print('url :',url)
+            yield scrapy.Request(url=url, callback=self.parseScreener, meta={'count':count+6, 'company_code':company_code, 'workbook':workbook})
         workbook.close()
 
-
-    def parse(self, response):
+    def parseScreener(self, response):
         count = str(response.meta['count'])
         company_code = str(response.meta['company_code'])
         workbook = response.meta['workbook']
@@ -95,5 +111,14 @@ class StockSpider(scrapy.Spider):
         companies_df = pd.concat([NSE, BSE],axis=1)
         return companies_df[['NAME OF COMPANY','Industry','Group']].head(15)
 
+    def getScreenerUrlSelenium(self, browser , companyName):
+        initial_url = browser.current_url
+        serachBoxXpath = '//*[@id="top-nav-search"]/div/input'
+        while(True):
+            if(browser.current_url != initial_url):
+                return browser.current_url
+            else:
+                browser.find_element_by_xpath(serachBoxXpath).send_keys("",companyName)
+                browser.find_element_by_xpath(serachBoxXpath).send_keys(Keys.ENTER)
 #df_balance_sheet = self.importAsDataframe(section_id = 'balance-sheet',comapny_name=comapny_name,response=response)
 #print(df_balance_sheet.head())
