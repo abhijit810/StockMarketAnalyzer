@@ -9,13 +9,13 @@ import re
 from openpyxl import Workbook
 from openpyxl import load_workbook
 import pandas as pd
-import requests
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+import mechanicalsoup
 
 os.chdir('file_processing')
 
@@ -38,14 +38,24 @@ class StockSpider(scrapy.Spider):
         chrome_options.add_experimental_option("detach", True)
         chrome_options.add_experimental_option("useAutomationExtension", False)
         chrome_options.add_experimental_option("excludeSwitches",["enable-automation"])
-        browser = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
-        source_Url = 'https://www.screener.in/'
-        browser.get(source_Url)
+        #scraping screener
+        sbrowser = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
+        ScreenerSource_Url = 'https://www.screener.in/'
+        sbrowser.get(ScreenerSource_Url)
+        #scraping moneycontrol
+        MoneyControlSourceurl = 'http://www.moneycontrol.com/stocks/cptmarket/compsearchnew.php?search_data=&cid=&mbsearch_str=&topsearch_type=1&search_str=trent'
+        mbrowser = mechanicalsoup.StatefulBrowser(user_agent='MechanicalSoup')
+        mbrowser.open(MoneyControlSourceurl)
         for count, company_code in enumerate(self.company_codes):
-            url = self.getScreenerUrlSelenium(browser = browser , companyName = company_code)
-            print('url :',url)
-            yield scrapy.Request(url=url, callback=self.parseScreener, meta={'count':count+6, 'company_code':company_code, 'workbook':workbook})
-        workbook.close()
+            screenerUrl = self.getScreenerUrlSelenium(browser = sbrowser , companyName = company_code)
+            MoneyControlurl = self.getMoneyControlUrl(browser = mbrowser , companyName = company_code)
+            if screenerUrl is not None :
+                yield scrapy.Request(url=screenerUrl, callback=self.parseScreener, meta={'count':count+6, 'company_code':company_code, 'workbook':workbook})
+            if MoneyControlurl is not None:
+                yield scrapy.Request(url=MoneyControlurl, callback=self.parseMoneyControl, meta={'count':count+6, 'company_code':company_code, 'workbook':workbook})
+            if screenerUrl is None or MoneyControlurl is None :
+                self.CompanyNotFound(count+6, company_code, workbook, screenerUrl, MoneyControlurl)
+            workbook.close()
 
     def parseScreener(self, response):
         count = str(response.meta['count'])
@@ -56,11 +66,46 @@ class StockSpider(scrapy.Spider):
         sector_name = company['Industry']
         group = company['Group']
         cmp= response.css('#content-area > section:nth-child(5) > ul > li:nth-child(2) > b::text').get()
+        market_cap = response.css('#content-area > section:nth-child(5) > ul > li:nth-child(1) > b::text').get()
         yearly_Sheet = workbook["Yearly"]
         yearly_Sheet['A'+count] = company_name
         yearly_Sheet['B'+count] = sector_name
         yearly_Sheet['C'+count] = group
-        yearly_Sheet['D'+count] = cmp
+        yearly_Sheet['D'+count] = market_cap + ' Cr'
+        yearly_Sheet['E'+count] = cmp
+        workbook.save(self.temporary_file)
+        if(os.path.exists(self.dest_filename)): os.remove(self.dest_filename)
+        if(os.path.exists(self.temporary_file)): shutil.copyfile(self.temporary_file, self.dest_filename)
+
+    def parseMoneyControl(self, response):
+        count = str(response.meta['count'])
+        print(count)
+        company_code = str(response.meta['company_code'])
+        workbook = response.meta['workbook']
+        company = self.companies.loc[company_code]
+        company_name = company['NAME OF COMPANY']
+        sector_name = company['Industry']
+        group = company['Group']
+        print('MoneyControl',company_name,sector_name,group)
+        yearly_Sheet = workbook["Yearly"]
+        print(yearly_Sheet)
+        workbook.save(self.temporary_file)
+        if(os.path.exists(self.dest_filename)): os.remove(self.dest_filename)
+        if(os.path.exists(self.temporary_file)): shutil.copyfile(self.temporary_file, self.dest_filename)
+
+    def CompanyNotFound(self, count, company_code, workbook, screenerUrl, MoneyControlurl):
+        count = str(count)
+        company = self.companies.loc[company_code]
+        company_name = company['NAME OF COMPANY']
+        sector_name = company['Industry']
+        group = company['Group']
+        cmp= "Not Found"
+        yearly_Sheet = workbook["Yearly"]
+        yearly_Sheet['A'+count] = company_name
+        yearly_Sheet['B'+count] = sector_name
+        yearly_Sheet['C'+count] = group
+        if screenerUrl is None : yearly_Sheet['E'+count] = cmp
+        if MoneyControlurl is None :pass
         workbook.save(self.temporary_file)
         if(os.path.exists(self.dest_filename)): os.remove(self.dest_filename)
         if(os.path.exists(self.temporary_file)): shutil.copyfile(self.temporary_file, self.dest_filename)
@@ -114,11 +159,30 @@ class StockSpider(scrapy.Spider):
     def getScreenerUrlSelenium(self, browser , companyName):
         initial_url = browser.current_url
         serachBoxXpath = '//*[@id="top-nav-search"]/div/input'
+        retries = 0
         while(True):
             if(browser.current_url != initial_url):
                 return browser.current_url
             else:
-                browser.find_element_by_xpath(serachBoxXpath).send_keys("",companyName)
-                browser.find_element_by_xpath(serachBoxXpath).send_keys(Keys.ENTER)
+                if (retries < 20) :
+                    browser.find_element_by_xpath(serachBoxXpath).clear()
+                    browser.find_element_by_xpath(serachBoxXpath).send_keys("",companyName)
+                    browser.find_element_by_xpath(serachBoxXpath).send_keys(Keys.ENTER)
+                    retries = retries + 1
+                else :
+                    return None
+
+    def getMoneyControlUrl(self, browser, companyName):
+        browser.select_form()
+        browser['search_str'] = companyName
+        browser.submit_selected()
+        form_list = str(browser.get_current_page())
+        if form_list.find("Sorry, there are no matches for your search") != -1 : return None
+        if form_list.find("Search results") != -1 : 
+            links = browser.get_current_page().findAll('a', attrs={'href': re.compile("^http://www.moneycontrol.com/")})
+            for link in links :
+                if '/'+companyName.lower()+'/' in link.get('href'):
+                    return link.get('href')
+        return browser.get_url()
 #df_balance_sheet = self.importAsDataframe(section_id = 'balance-sheet',comapny_name=comapny_name,response=response)
 #print(df_balance_sheet.head())
