@@ -28,7 +28,6 @@ class StockSpider(scrapy.Spider):
         self.template_file = 'template\\excel_format.xlsx'
         self.temporary_file = 'temporary_files\\temp_format.xlsx'
         self.dest_filename = 'output\\stock_'+today.strftime('%Y_%h_%d')+'_.xlsx'
-        self.metadata_df = self.def_GetMetadataDF()
 
     def start_requests(self):
         if(os.path.exists(self.temporary_file)):os.remove(self.temporary_file)
@@ -50,7 +49,6 @@ class StockSpider(scrapy.Spider):
         for count, company_code in enumerate(self.company_codes):
             screenerUrl = self.getScreenerUrlSelenium(browser = sbrowser , companyName = company_code)
             MoneyControlurl = self.getMoneyControlUrl(browser = mbrowser , companyName = company_code)
-            self.updateWorkbookFromDf( workbook, count+6, company_code )
             if screenerUrl is not None :
                 yield scrapy.Request(url=screenerUrl, callback=self.parseScreener, meta={'count':count+6, 'company_code':company_code, 'workbook':workbook})
             if MoneyControlurl is not None:
@@ -63,39 +61,54 @@ class StockSpider(scrapy.Spider):
         count = str(response.meta['count'])
         company_code = str(response.meta['company_code'])
         workbook = response.meta['workbook']
-        fromScreener_df = self.metadata_df[ self.metadata_df['source'] == 'screener']
+        company = self.companies.loc[company_code]
+        company_name = company['NAME OF COMPANY']
+        sector_name = company['Industry']
+        group = company['Group']
+        cmp= response.css('#content-area > section:nth-child(5) > ul > li:nth-child(2) > b::text').get()
+        market_cap = response.css('#content-area > section:nth-child(5) > ul > li:nth-child(1) > b::text').get()
         yearly_Sheet = workbook["Yearly"]
-        # add your scraping code here 
-        for index in fromScreener_df.index:
-            company = self.companies.loc[company_code]
-            metric_css = company[ fromScreener_df["scrape_address_css"] ]
-            if metric_css is not None:
-                yearly_Sheet[index + count] = response.css(metric_css).get()
-            else:
-                metric_xpath = company[ fromScreener_df["scrape_address_xpath"] ]
-                yearly_Sheet[index + count] = response.xpath(metric_xpath).get()
-        self.def_postRowProcessing(workbook)
+        yearly_Sheet['A'+count] = company_name
+        yearly_Sheet['B'+count] = sector_name
+        yearly_Sheet['C'+count] = group
+        yearly_Sheet['D'+count] = market_cap + ' Cr'
+        yearly_Sheet['E'+count] = cmp
+        workbook.save(self.temporary_file)
+        if(os.path.exists(self.dest_filename)): os.remove(self.dest_filename)
+        if(os.path.exists(self.temporary_file)): shutil.copyfile(self.temporary_file, self.dest_filename)
 
     def parseMoneyControl(self, response):
         count = str(response.meta['count'])
+        print(count)
         company_code = str(response.meta['company_code'])
         workbook = response.meta['workbook']
-        fromMoneycontrol_df = self.metadata_df[ self.metadata_df['source'] == 'moneycontrol']
+        company = self.companies.loc[company_code]
+        company_name = company['NAME OF COMPANY']
+        sector_name = company['Industry']
+        group = company['Group']
+        print('MoneyControl',company_name,sector_name,group)
         yearly_Sheet = workbook["Yearly"]
-        # add your scraping code here 
-        for index in fromMoneycontrol_df.index:
-            company = self.companies.loc[company_code]
-            metric_xpath = company[ fromMoneycontrol_df["scrape_address_xpath"] ] 
-            if metric_xpath is not None:
-                yearly_Sheet[index + count] = response.xpath(metric_xpath).get()
-            else:
-                metric_css = company[ fromMoneycontrol_df["scrape_address_css"] ]
-                yearly_Sheet[index + count] = response.css(metric_css).get()
         print(yearly_Sheet)
-        self.def_postRowProcessing(workbook)
+        workbook.save(self.temporary_file)
+        if(os.path.exists(self.dest_filename)): os.remove(self.dest_filename)
+        if(os.path.exists(self.temporary_file)): shutil.copyfile(self.temporary_file, self.dest_filename)
 
     def CompanyNotFound(self, count, company_code, workbook, screenerUrl, MoneyControlurl):
-        pass
+        count = str(count)
+        company = self.companies.loc[company_code]
+        company_name = company['NAME OF COMPANY']
+        sector_name = company['Industry']
+        group = company['Group']
+        cmp= "Not Found"
+        yearly_Sheet = workbook["Yearly"]
+        yearly_Sheet['A'+count] = company_name
+        yearly_Sheet['B'+count] = sector_name
+        yearly_Sheet['C'+count] = group
+        if screenerUrl is None : yearly_Sheet['E'+count] = cmp
+        if MoneyControlurl is None :pass
+        workbook.save(self.temporary_file)
+        if(os.path.exists(self.dest_filename)): os.remove(self.dest_filename)
+        if(os.path.exists(self.temporary_file)): shutil.copyfile(self.temporary_file, self.dest_filename)
 
     def importAsDataframe(self, section_id,comapny_name,response):
         headers = response.xpath('//*[@id="'+section_id+'"]/div[2]/table/thead//text()').getall()
@@ -171,22 +184,5 @@ class StockSpider(scrapy.Spider):
                 if '/'+companyName.lower()+'/' in link.get('href'):
                     return link.get('href')
         return browser.get_url()
-
-    def def_GetMetadataDF(self):
-        '''reads the metadata csv file'''
-        return pd.read_csv ('metadata\\metadata.csv',index_col= 'Excel_col_code' )
-
-    def updateWorkbookFromDf(self, workbook, count, company_code):
-        '''updates values in excel workbook for  the columns being taken from DF'''
-        fromMetadataDF = self.metadata_df[ self.metadata_df['source'] == 'companies_df']
-        yearly_Sheet = workbook["Yearly"]
-        for index in fromMetadataDF.index:
-            company = self.companies.loc[company_code]
-            yearly_Sheet[index + count] = company[ fromMetadataDF["col_name_in_comp_df"] ]
-        self.def_postRowProcessing(workbook)
-
-    def def_postRowProcessing(self, workbook):
-        '''this function does all the workbook saving and post processing part'''
-        workbook.save(self.temporary_file)
-        if(os.path.exists(self.dest_filename)): os.remove(self.dest_filename)
-        if(os.path.exists(self.temporary_file)): shutil.copyfile(self.temporary_file, self.dest_filename)
+#df_balance_sheet = self.importAsDataframe(section_id = 'balance-sheet',comapny_name=comapny_name,response=response)
+#print(df_balance_sheet.head())

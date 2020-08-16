@@ -119,4 +119,10 @@ def getMoneycontrolUrlSelenium(companyName = "None"):
     browser.find_element_by_xpath(""" //*[@id="autosuggestlist"]/ul/div/div/li[1]/a """).click()
     return browser.current_url
 
-print(getMoneyControlUrl('TRENT'))
+def def_GetMetadataDF():
+    '''reads the metadata csv file'''
+    metadata_df = pd.read_csv ('metadata\\metadata.csv',index_col= 'Excel_col_code' )
+    fromMetadataDF = metadata_df[ metadata_df['source'] == 'companies_df']
+    print(fromMetadataDF)
+
+def_GetMetadataDF()
