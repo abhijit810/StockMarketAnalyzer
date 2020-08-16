@@ -1,0 +1,11 @@
+Excel_col_code,metric,source,scrape_address_css,scrape_address_xpath,formula,col_name_in_comp_df
+"A","company_name","companies_df","None","None","None","NAME OF COMPANY"
+"B","sector_name","companies_df","None","None","None","Industry"
+"C","group","companies_df","None","None","None","Group"
+"D","market_cap","screener","#content-area > section:nth-child(5) > ul > li:nth-child(1) > b::text","None","None","None"
+"E","cmp","screener","#content-area > section:nth-child(5) > ul > li:nth-child(2) > b::text","None","None","None"
+"F","Valuation","calculation","formula","None","None","None"
+"G","PEG","calculation","formula","None","None","None"
+"H","Current P/E(x)","screener","#content-area > section:nth-child(5) > ul > li:nth-child(5) > b::text","None","None","None"
+"I","Avg PE (5 yrs)","calculation","formula","None","None","None"
+"J","EPS","","","","",""
