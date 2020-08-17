@@ -52,44 +52,41 @@ class StockSpider(scrapy.Spider):
             MoneyControlurl = self.getMoneyControlUrl(browser = mbrowser , companyName = company_code)
             self.updateWorkbookFromDf( workbook, count+6, company_code )
             if screenerUrl is not None :
-                yield scrapy.Request(url=screenerUrl, callback=self.parseScreener, meta={'count':count+6, 'company_code':company_code, 'workbook':workbook})
+                yield scrapy.Request(url=screenerUrl, callback=self.parseScreener, meta={'count':count+6, 'workbook':workbook})
             if MoneyControlurl is not None:
-                yield scrapy.Request(url=MoneyControlurl, callback=self.parseMoneyControl, meta={'count':count+6, 'company_code':company_code, 'workbook':workbook})
+                yield scrapy.Request(url=MoneyControlurl, callback=self.parseMoneyControl, meta={'count':count+6, 'workbook':workbook})
             if screenerUrl is None or MoneyControlurl is None :
-                self.CompanyNotFound(count+6, company_code, workbook, screenerUrl, MoneyControlurl)
+                pass
+                #self.CompanyNotFound(count+6, company_code, workbook, screenerUrl, MoneyControlurl)
             workbook.close()
 
     def parseScreener(self, response):
         count = str(response.meta['count'])
-        company_code = str(response.meta['company_code'])
         workbook = response.meta['workbook']
         fromScreener_df = self.metadata_df[ self.metadata_df['source'] == 'screener']
         yearly_Sheet = workbook["Yearly"]
         # add your scraping code here 
         for index in fromScreener_df.index:
-            company = self.companies.loc[company_code]
-            metric_css = company[ fromScreener_df["scrape_address_css"] ]
+            metric_css = fromScreener_df["scrape_address_css"].loc[index]
             if metric_css is not None:
                 yearly_Sheet[index + count] = response.css(metric_css).get()
             else:
-                metric_xpath = company[ fromScreener_df["scrape_address_xpath"] ]
+                metric_xpath = fromScreener_df["scrape_address_xpath"].loc[index]
                 yearly_Sheet[index + count] = response.xpath(metric_xpath).get()
         self.def_postRowProcessing(workbook)
 
     def parseMoneyControl(self, response):
         count = str(response.meta['count'])
-        company_code = str(response.meta['company_code'])
         workbook = response.meta['workbook']
         fromMoneycontrol_df = self.metadata_df[ self.metadata_df['source'] == 'moneycontrol']
         yearly_Sheet = workbook["Yearly"]
         # add your scraping code here 
         for index in fromMoneycontrol_df.index:
-            company = self.companies.loc[company_code]
-            metric_xpath = company[ fromMoneycontrol_df["scrape_address_xpath"] ] 
+            metric_xpath = fromMoneycontrol_df["scrape_address_xpath"].loc[index]
             if metric_xpath is not None:
                 yearly_Sheet[index + count] = response.xpath(metric_xpath).get()
             else:
-                metric_css = company[ fromMoneycontrol_df["scrape_address_css"] ]
+                metric_css = fromMoneycontrol_df["scrape_address_css"].loc[index]
                 yearly_Sheet[index + count] = response.css(metric_css).get()
         print(yearly_Sheet)
         self.def_postRowProcessing(workbook)
@@ -182,7 +179,7 @@ class StockSpider(scrapy.Spider):
         yearly_Sheet = workbook["Yearly"]
         for index in fromMetadataDF.index:
             company = self.companies.loc[company_code]
-            yearly_Sheet[index + count] = company[ fromMetadataDF["col_name_in_comp_df"] ]
+            yearly_Sheet[index + count] = company[ fromMetadataDF["col_name_in_comp_df"].loc[index] ]
         self.def_postRowProcessing(workbook)
 
     def def_postRowProcessing(self, workbook):
