@@ -44,9 +44,7 @@ class StockSpider(scrapy.Spider):
         ScreenerSource_Url = 'https://www.screener.in/'
         sbrowser.get(ScreenerSource_Url)
         #scraping moneycontrol
-        MoneyControlSourceurl = 'http://www.moneycontrol.com/stocks/cptmarket/compsearchnew.php?search_data=&cid=&mbsearch_str=&topsearch_type=1&search_str=trent'
         mbrowser = mechanicalsoup.StatefulBrowser(user_agent='MechanicalSoup')
-        mbrowser.open(MoneyControlSourceurl)
         for count, company_code in enumerate(self.company_codes):
             screenerUrl = self.getScreenerUrlSelenium(browser = sbrowser , companyName = company_code)
             MoneyControlurl = self.getMoneyControlUrl(browser = mbrowser , companyName = company_code)
@@ -82,12 +80,12 @@ class StockSpider(scrapy.Spider):
         yearly_Sheet = workbook["Yearly"]
         # add your scraping code here 
         for index in fromMoneycontrol_df.index:
-            metric_xpath = fromMoneycontrol_df["scrape_address_xpath"].loc[index]
-            if metric_xpath is not None:
-                yearly_Sheet[index + count] = response.xpath(metric_xpath).get()
-            else:
-                metric_css = fromMoneycontrol_df["scrape_address_css"].loc[index]
+            metric_css = fromMoneycontrol_df["scrape_address_css"].loc[index]
+            if metric_css is not None:
                 yearly_Sheet[index + count] = response.css(metric_css).get()
+            else:
+                metric_xpath = fromMoneycontrol_df["scrape_address_xpath"].loc[index]
+                yearly_Sheet[index + count] = response.xpath(metric_xpath).get()
         print(yearly_Sheet)
         self.def_postRowProcessing(workbook)
 
@@ -157,6 +155,8 @@ class StockSpider(scrapy.Spider):
                     return None
 
     def getMoneyControlUrl(self, browser, companyName):
+        MoneyControlSourceurl = 'http://www.moneycontrol.com/stocks/cptmarket/compsearchnew.php?search_data=&cid=&mbsearch_str=&topsearch_type=1&search_str=trent'
+        browser.open(MoneyControlSourceurl)
         browser.select_form()
         browser['search_str'] = companyName
         browser.submit_selected()
@@ -167,7 +167,11 @@ class StockSpider(scrapy.Spider):
             for link in links :
                 if '/'+companyName.lower()+'/' in link.get('href'):
                     return link.get('href')
-        return browser.get_url()
+        if form_list.find("No result found for") != -1 : return None
+        print(companyName.lower().split()[0])
+        if form_list.find(companyName.lower().split()[0]) != -1 :
+            return browser.get_url()
+        else: return None
 
     def def_GetMetadataDF(self):
         '''reads the metadata csv file'''
@@ -179,7 +183,7 @@ class StockSpider(scrapy.Spider):
         yearly_Sheet = workbook["Yearly"]
         for index in fromMetadataDF.index:
             company = self.companies.loc[company_code]
-            yearly_Sheet[index + count] = company[ fromMetadataDF["col_name_in_comp_df"].loc[index] ]
+            yearly_Sheet[index + str(count)] = company[ fromMetadataDF["col_name_in_comp_df"].loc[index] ]
         self.def_postRowProcessing(workbook)
 
     def def_postRowProcessing(self, workbook):
